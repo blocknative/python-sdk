@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import ast
-import os
+from os import path
 import re
 from setuptools import setup, find_packages
 
@@ -15,6 +15,10 @@ with open('blocknative/__init__.py', 'rb') as f:
 with open('README.md') as readme_file:
     README = readme_file.read()
 
+# Read requirements.txt
+with open(path.join(path.abspath(path.dirname(__file__)), 'requirements.txt'), encoding='utf-8') as f:
+    requirements = f.read().split('\n')
+
 setup(
     name='blocknative-sdk',
     version=version,
@@ -25,5 +29,8 @@ setup(
     author_email='taylor@blocknative.com',
     url='https://github.com/blocknative/python-sdk',
     keywords='ethereum,api,transactions,blocknative',
+    package_dir={"": "blocknative"},
     packages=["blocknative"],
+    python_requires='>=3.9',
+    install_requires=requirements
 )
