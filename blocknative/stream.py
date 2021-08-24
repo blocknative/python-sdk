@@ -1,12 +1,14 @@
-import logging
+"""
+Blocknative Stream.
+"""
 import json
 from datetime import datetime
 import time
 from enum import Enum
 from dataclasses import dataclass, field
 from queue import Queue, Empty
-from typing import List, Mapping, Any, Callable, TypedDict, Union
-from plum import dispatch
+from typing import List, Mapping, Callable, Union
+import types
 import trio
 from trio_websocket import (
     open_websocket_url,
@@ -14,14 +16,15 @@ from trio_websocket import (
     HandshakeError,
     WebSocketConnection,
 )
-from blocknative.exceptions import SDKError
 from blocknative.utils import (
     status_error_to_exception,
     network_id_to_name,
     status_to_event_code,
     is_server_echo,
+    subscription_type,
+    SubscriptionType,
+    to_camel_case
 )
-import types
 
 PING_INTERVAL = 15
 PING_TIMEOUT = 10
@@ -30,51 +33,60 @@ MESSAGE_SEND_INTERVAL = 0.021  # 21ms
 Callback = Callable[[dict, Callable], None]
 
 
-class SubscriptionType(Enum):
-    ADDRESS = 0
-    TRANSACTION = 1
-
-
 @dataclass
 class Subscription:
-    # Callback function that will get executed for this subscription
+    """Dataclass representing the Subscription object.
+
+    Attributes:
+        callback: Callback function that will get executed for this subscription.
+        data: Data associated with a subscription.
+        sub_type: The type of subscription - `ADDRESS` or `TRANSACTION`.
+    """
+
     callback: Callback
-    # Data associated with a subscription
     data: dict
     sub_type: SubscriptionType
 
 
 @dataclass
 class Config:
+    """Dataclass representing the client configuration object.
+
+    Attributes:
+        scope: The Ethereum or Bitcoin address that this configuration applies to,
+        or `global` to apply the configuration gobally.
+        filters: The array of valid filters. The Blocknative service uses jsql, a JavaScript query
+        language to filter events.
+        abi: The valid JSON ABI that will be used to decode input data for transactions
+        that occur on the contract address defined in `scope`.
+        watch_address: Defines whether the service should automatically watch the
+        address as defined in `scope`.
+    """
+
     scope: str
     filters: List[dict] = None
     abi: List[dict] = None
-    watchAddress: bool = True
+    watch_address: bool = True
 
     def as_dict(self) -> dict:
-        """Filters out fields None values.
+        """Filters out the None values.
         Returns:
             The Config class as a dict excluding fields with a None value.
         """
         return {
             "config": {
-                key: self.__dict__[key]
+                to_camel_case(key): self.__dict__[key]
                 for key in self.__dict__
                 if self.__dict__[key] is not None
             }
         }
 
 
-bind = lambda instance, func, asname: setattr(
-    instance, asname, func.__get__(instance, instance.__class__)
-)
-
-
 @dataclass
 class Stream:
-    """
-    Stream class used to connect to Blocknative WebSocket API.
-    """
+    """Stream class used to connect to Blocknative's WebSocket API."""
+
+    # - Public instance variables -
 
     api_key: str
     base_url: str = "wss://api.blocknative.com/v0"
@@ -98,6 +110,7 @@ class Stream:
         address: str,
         callback: Callback,
         filters: List[dict] = None,
+        abi: List[dict] = None,
     ):
         """Subscribes to an address to listen to any incoming and
         outgoing transactions that occur on that address.
@@ -106,6 +119,7 @@ class Stream:
             address: The address to watch for incoming and outgoing transactions.
             callback: The callback function that will get executed for this subscription.
             filters: The filters by which to filter the transactions associated with the address.
+            abi: The ABI of the contract. Used if `address` is a contract address.
 
         Examples:
             async def txn_handler(txn)
@@ -114,9 +128,12 @@ class Stream:
             stream.subscribe("0x7a250d5630b4cf539739df2c5dacb4c659f2488d", txn_handler)
         """
 
+        if self.blockchain == "ethereum":
+            address = address.lower()
+
         # Add this subscription to the registry
         self._subscription_registry[address] = Subscription(
-            callback, filters, SubscriptionType.ADDRESS
+            callback, {"filters": filters, "abi": abi}, SubscriptionType.ADDRESS
         )
 
         # Only send the message if we are already connected. The connection handler
@@ -125,7 +142,8 @@ class Stream:
             self._send_config_message(address, True, filters)
 
     def subscribe_txn(self, tx_hash: str, callback: Callback, status: str = "sent"):
-        """
+        """Subscribes to an transaction to listen to transaction state changes.
+
         Args:
             txn_hash: The hash of the transaction to watch.
             callback: The callback function that will get executed for this subscription.
@@ -150,6 +168,11 @@ class Stream:
             return None
 
     def send_message(self, message: str):
+        """Sends a websocket message. (Adds the message to the queue to be sent).
+
+        Args:
+            message: The message to send.
+        """
         self._message_queue.put(message)
 
     async def _message_dispatcher(self):
@@ -202,11 +225,7 @@ class Stream:
                 return
 
             # Checks if the messsage is for a transaction subscription
-            if (
-                "essentialFields" in message
-                and message["event"]["essentialFields"]["watchedAddress"] == "hash"
-                or message["event"]["categoryCode"] == "activeTransaction"
-            ):
+            if subscription_type(message) == SubscriptionType.TRANSACTION:
 
                 # Find the matching subscription and run it's callback
                 await self._subscription_registry[
@@ -214,21 +233,20 @@ class Stream:
                 ].callback(message["event"]["transaction"])
 
             # Checks if the messsage is for an address subscription
-            elif message["event"]["categoryCode"] == "activeAddress":
-                watchedAddress = message["event"]["transaction"]["watchedAddress"]
+            elif subscription_type(message) == SubscriptionType.ADDRESS:
+                watched_address = message["event"]["transaction"]["watchedAddress"]
 
                 def unsubscribe(_):
-                    print({ "account": watchedAddress } )
                     self.send_message(
                         self._build_payload(
                             category_code="accountAddress",
                             event_code="unwatch",
-                            data={ "account": { "address": watchedAddress } },
+                            data={"account": {"address": watched_address}},
                         )
                     )
 
                 # Find the matching subscription and run it's callback
-                await self._subscription_registry[watchedAddress].callback(
+                await self._subscription_registry[watched_address].callback(
                     message["event"]["transaction"], types.MethodType(unsubscribe, self)
                 )
 
@@ -260,7 +278,6 @@ class Stream:
             This function runs until cancelled.
         """
 
-        # TODO: Turn this into its own method -------------------------
         # If the user set global_filters then send them once _message_dispatcher starts
         if self.global_filters:
             self._send_config_message("global", None, self.global_filters)
@@ -273,8 +290,9 @@ class Stream:
             if subscription.sub_type == SubscriptionType.TRANSACTION:
                 self._send_txn_watch_message(sub_id, status=subscription.data)
             elif subscription.sub_type == SubscriptionType.ADDRESS:
-                self._send_config_message(sub_id, True, filters=subscription.data)
-        # TODO -------------------------------------------------------
+                self._send_config_message(
+                    sub_id, True, subscription.data["filters"], subscription.data["abi"]
+                )
 
         try:
             async with trio.open_nursery() as nursery:
@@ -304,7 +322,7 @@ class Stream:
     def _send_config_message(
         self,
         scope,
-        watchAddress=True,
+        watch_address=True,
         filters: List[dict] = None,
         abi: List[dict] = None,
     ):
@@ -312,15 +330,15 @@ class Stream:
 
         Args:
             scope: The scope which this config applies to.
-            watchAddress: Indicates whether or not to watch the address  (if scope ==  `address`).
+            watch_address: Indicates whether or not to watch the address  (if scope ==  `address`).
             filters: Filters used to filter out transactions for the given scope.
-            abi: The ABI of the contract.
+            abi: The ABI of the contract. Used if `scope` is a contract address.
         """
         self.send_message(
             self._build_payload(
                 category_code="configs",
                 event_code="put",
-                data=Config(scope, filters, abi, watchAddress).as_dict(),
+                data=Config(scope, filters, abi, watch_address).as_dict(),
             )
         )
 
@@ -334,7 +352,6 @@ class Stream:
         txn = {
             "transaction": {
                 "hash": txn_hash,
-                "id": txn_hash,
                 "startTime": int(time.time() * 1000),
                 "status": status,
             }
@@ -374,8 +391,8 @@ class Stream:
             },
             "categoryCode": category_code,
             "eventCode": event_code,
-            **data
-            }
+            **data,
+        }
 
     def _queue_init_message(self):
         """Sends the initialization message e.g. the checkDappId event."""

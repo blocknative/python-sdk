@@ -9,6 +9,8 @@ class ErrorReason(Enum):
     API_VERSION = "api version not supported"
     API_KEY_MISSING = "missing dappId"
     API_KEY_INVALID = "is not a valid API key"
+    EVENT_RATE_LIMIT = "event rate limit"
+    SIMULATED_RATE_LIMIT = "Simulated transactions limit"
 
 
 def status_error_to_exception(message: dict) -> None:
@@ -18,28 +20,53 @@ def status_error_to_exception(message: dict) -> None:
         message_status: The status field of the API WebSocket message.
 
     Raises:
-        WebsocketRateLimitError: iIf number of ws messages exceeds limit within a duration.
+        WebsocketRateLimitError: If number of ws messages exceeds limit within a duration.
         MessageSizeError: The Websocket payload is too large.
         InvalidAPIVersionError: If using incorrect API version.
         EventRateLimitError: If the API key has exceeded its daily event limit.
+        SimulatedEventRateLimitError: If the API key has exceeded its daily simulated event limit.
         IPRateLimitError: If the IP has exceeded its daily event limit.
         MissingAPIKeyError: If the API key is missing.
         InvalidAPIKeyError: If the API key is invalid.
         SDKError: If there is a non-specific error that is indicated by the server.
     """
-    if message["status"] == "ok":
+
+    if message["status"] == "ok" or "reason" in message:
         return None  # This message does not contain an error
-    elif message["reason"] == ErrorReason.MESSAGE_TOO_LARGE:
-        raise MessageSizeError
-    elif ErrorReason.API_KEY_INVALID.value in message["reason"]:
-        raise InvalidAPIKeyError(message["reason"])
-    elif ErrorReason.API_KEY_MISSING.value in message["reason"]:
-        raise MissingAPIKeyError(message["reason"])
+
+    reason = message["reason"]
+
+    if reason == ErrorReason.RATE_LIMIT:
+        raise WebsocketRateLimitError(reason)
+
+    elif reason == ErrorReason.MESSAGE_TOO_LARGE:
+        raise MessageSizeError(reason)
+
+    elif ErrorReason.API_KEY_MISSING.value in reason:
+        raise MissingAPIKeyError(reason)
+
+    elif reason == ErrorReason.API_VERSION:
+        raise InvalidAPIVersionError(reason)
+
+    elif ErrorReason.EVENT_RATE_LIMIT in reason:
+        raise EventRateLimitError(reason)
+
+    elif ErrorReason.SIMULATED_RATE_LIMIT in reason:
+        raise SimulatedEventRateLimitError(reason)
+
+    elif ErrorReason.API_KEY_INVALID.value in reason:
+        raise InvalidAPIKeyError(reason)
     else:
-        raise SDKError(message["reason"])
+        raise SDKError(reason)
 
 
-def network_id_to_name(network_id: int):
+def network_id_to_name(network_id: int) -> str:
+    """Takes a network id and returns the network name.
+    Args:
+        network_id: The id of the network
+    Returns:
+        The network name.
+    """
     return {
         1: "main",
         3: "ropsten",
@@ -88,3 +115,36 @@ def is_server_echo(event_code: str):
         "txUnderPriced",
         "txSent",
     }
+
+
+class SubscriptionType(Enum):
+    """Enum representing the Subscription type.
+
+    Attributes:
+        ADDRESS: A subscription that subscribes to an address.
+        TRANSACTION: A subscription that subscribes to an transaction.
+    """
+
+    ADDRESS = 0
+    TRANSACTION = 1
+
+
+def subscription_type(message: dict):
+    """Determines the subscription type of websocket response message: `transaction` or `address`.
+    Args:
+        message: The websocket message.
+
+    Returns:
+        True if it is a transaction subscription and False otherwise.
+    """
+    if (
+        "essentialFields" in message
+        and message["event"]["essentialFields"]["watchedAddress"] == "hash"
+        or message["event"]["categoryCode"] == "activeTransaction"
+    ):
+        return SubscriptionType.TRANSACTION
+    elif message["event"]["categoryCode"] == "activeAddress":
+        return SubscriptionType.ADDRESS
+
+def to_camel_case(string: str):
+    return ''.join(word.title() if idx > 0 else word for idx, word in enumerate(string.split('_')))

@@ -15,6 +15,9 @@ class InvalidAPIVersionError(SDKError):
 class EventRateLimitError(SDKError):
     """Raised when API key has exceeded its daily event limit"""
 
+class SimulatedEventRateLimitError(SDKError):
+    """Raised when API key has exceeded its daily simulated event limit"""
+
 class IPRateLimitError(SDKError):
     """Raised when IP has exceeded its daily event limit"""
 

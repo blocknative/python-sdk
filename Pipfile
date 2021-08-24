@@ -11,9 +11,9 @@ plum-dispatch = "*"
 pytest = "*"
 pytest-trio = "*"
 pytest-mock = "*"
+twine = "*"
 
 [dev-packages]
-black = "*"
 pylint = "*"
 
 [requires]
