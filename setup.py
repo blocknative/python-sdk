@@ -18,13 +18,12 @@ with open('README.md') as readme_file:
 setup(
     name='blocknative-sdk',
     version=version,
-    description='',
+    description='Blocknative\'s Python SDK.',
     long_description=README,
     long_description_content_type='text/markdown',
     author='Taylor Dawson',
     author_email='taylor@blocknative.com',
     url='https://github.com/blocknative/python-sdk',
     keywords='ethereum,api,transactions,blocknative',
-    package_dir={"": "blocknative"},
-    packages=find_packages(where="blocknative"),
+    packages=["blocknative"],
 )
