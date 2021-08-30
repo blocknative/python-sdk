@@ -21,7 +21,7 @@ import json
 stream = Stream('<API_KEY>')
 
 # Define your transaction handler which has the context of a specific subscription.
-async def txn_handler(txn):
+async def txn_handler(txn, unsubscribe):
     # Output the transaction data to the console
     print(json.dumps(txn, indent=4))
 

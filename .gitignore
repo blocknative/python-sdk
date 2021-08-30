@@ -1,3 +1,25 @@
-.vscode
-.pytest_cache
-__pycache__
+# Byte-compiled / optimized / DLL files
+__pycache__/
+.pytest_cache/
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+/.vscode/
+.idea/
