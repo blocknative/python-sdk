@@ -29,7 +29,6 @@ setup(
     author_email='taylor@blocknative.com',
     url='https://github.com/blocknative/python-sdk',
     keywords='ethereum,api,transactions,blocknative',
-    package_dir={"": "blocknative"},
     packages=["blocknative"],
     python_requires='>=3.9',
     install_requires=requirements
