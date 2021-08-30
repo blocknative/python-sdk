@@ -3,7 +3,7 @@
 ## Install
 With Pip:
 ```bash
-pip3 install alpaca-trade-api
+pip3 install blocknative-sdk
 ```
 
 ## API Key
