@@ -34,12 +34,6 @@ body:
       required: false
   - type: input
     attributes:
-      label: Onboard Version
-      description: What version of the SDK are you using?
-    validations:
-      required: true
-  - type: input
-    attributes:
       label: Python Version
       description: What version of Python are you running?
     validations:
