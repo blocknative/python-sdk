@@ -23,7 +23,7 @@ from blocknative.utils import (
     is_server_echo,
     subscription_type,
     SubscriptionType,
-    to_camel_case
+    to_camel_case,
 )
 
 PING_INTERVAL = 15
