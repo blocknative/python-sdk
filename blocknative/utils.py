@@ -1,9 +1,12 @@
+"""Helper methods used throughout the codebase.
+"""
 from enum import Enum
 from blocknative.exceptions import *
-from dataclasses import dataclass
 
 
 class ErrorReason(Enum):
+    """Enum respresenting the different possible error states"""
+
     MESSAGE_TOO_LARGE = "message too large"
     RATE_LIMIT = "ratelimit"
     API_VERSION = "api version not supported"
@@ -74,7 +77,7 @@ def network_id_to_name(network_id: int) -> str:
         5: "goerli",
         42: "kovan",
         100: "xdai",
-        56: "bsc",
+        56: "bsc-main",
     }[network_id]
 
 
@@ -146,5 +149,14 @@ def subscription_type(message: dict):
     elif message["event"]["categoryCode"] == "activeAddress":
         return SubscriptionType.ADDRESS
 
+
 def to_camel_case(string: str):
-    return ''.join(word.title() if idx > 0 else word for idx, word in enumerate(string.split('_')))
+    """Converts the provided string into camel case
+    Args:
+        string: The string to convert
+    Returns:
+        The string in camel case
+    """
+    return "".join(
+        word.title() if idx > 0 else word for idx, word in enumerate(string.split("_"))
+    )
