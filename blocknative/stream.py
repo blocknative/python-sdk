@@ -4,7 +4,6 @@ Blocknative Stream.
 import json
 from datetime import datetime
 import time
-from enum import Enum
 from dataclasses import dataclass, field
 from queue import Queue, Empty
 from typing import List, Mapping, Callable, Union
@@ -228,27 +227,38 @@ class Stream:
             if subscription_type(message) == SubscriptionType.TRANSACTION:
 
                 # Find the matching subscription and run it's callback
-                await self._subscription_registry[
+                if (
                     message["event"]["transaction"]["hash"]
-                ].callback(message["event"]["transaction"])
+                    in self._subscription_registry
+                ):
+                    await self._subscription_registry[
+                        message["event"]["transaction"]["hash"]
+                    ].callback(message["event"]["transaction"])
 
             # Checks if the messsage is for an address subscription
             elif subscription_type(message) == SubscriptionType.ADDRESS:
                 watched_address = message["event"]["transaction"]["watchedAddress"]
-
-                def unsubscribe(_):
-                    self.send_message(
-                        self._build_payload(
-                            category_code="accountAddress",
-                            event_code="unwatch",
-                            data={"account": {"address": watched_address}},
-                        )
+                if watched_address in self._subscription_registry:
+                    # Find the matching subscription and run it's callback
+                    await self._subscription_registry[watched_address].callback(
+                        message["event"],
+                        types.MethodType(self.unsubscribe(watched_address), self),
                     )
 
-                # Find the matching subscription and run it's callback
-                await self._subscription_registry[watched_address].callback(
-                    message["event"]["transaction"], types.MethodType(unsubscribe, self)
+    def unsubscribe(self, watched_address):
+        # remove this subscription from the registry so that we don't execute the callback
+        del self._subscription_registry[watched_address]
+
+        def _unsubscribe(_):
+            self.send_message(
+                self._build_payload(
+                    category_code="accountAddress",
+                    event_code="unwatch",
+                    data={"account": {"address": watched_address}},
                 )
+            )
+
+        return _unsubscribe
 
     async def _heartbeat(self):
         """Send periodic pings on WebSocket.
