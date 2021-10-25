@@ -1,4 +1,6 @@
-<img src="https://img.shields.io/pypi/v/blocknative-sdk" /></a>
+<a href="https://pypi.org/project/blocknative-sdk/">
+    <img src="https://img.shields.io/pypi/v/blocknative-sdk" />
+</a>
 
 # Blocknative Python SDK
 
