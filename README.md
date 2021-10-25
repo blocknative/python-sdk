@@ -1,3 +1,5 @@
+<img src="https://img.shields.io/pypi/v/blocknative-sdk" /></a>
+
 # Blocknative Python SDK
 
 ## Install
