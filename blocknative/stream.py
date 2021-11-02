@@ -16,7 +16,7 @@ from trio_websocket import (
     WebSocketConnection,
 )
 from blocknative.utils import (
-    status_error_to_exception,
+    raise_error_on_status,
     network_id_to_name,
     status_to_event_code,
     is_server_echo,
@@ -86,13 +86,14 @@ class Stream:
     """Stream class used to connect to Blocknative's WebSocket API."""
 
     # - Public instance variables -
-
+    
     api_key: str
     base_url: str = "wss://api.blocknative.com/v0"
     blockchain: str = "ethereum"
     network_id: int = 1
     version: str = "1"
     global_filters: List[dict] = None
+    valid_session: bool = True
 
     # - Private instance variables -
 
@@ -183,7 +184,7 @@ class Stream:
         Note:
             This function runs until cancelled.
         """
-        while True:
+        while self.valid_session:
             try:
                 msg = self._message_queue.get_nowait()
                 await self._ws.send_message(json.dumps(msg))
@@ -198,7 +199,7 @@ class Stream:
         Note:
             This function runs until cancelled.
         """
-        while True:
+        while self.valid_session:
             msg = await self._ws.get_message()
             await self._message_handler(json.loads(msg))
 
@@ -212,11 +213,12 @@ class Stream:
             message: The incoming websocket message.
         """
         # This should never happen but indicates an invalid message from the server
-        if not "status" in message:
-            return
+        if not 'status' in message:
+            self.valid_session = False
+            return 
 
         # Raises an exception if the status of the message is an error
-        status_error_to_exception(message)
+        raise_error_on_status(message)
 
         if "event" in message and "transaction" in message["event"]:
             # Ignore server echo and unsubscribe messages

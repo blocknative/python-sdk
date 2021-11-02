@@ -16,7 +16,7 @@ class ErrorReason(Enum):
     SIMULATED_RATE_LIMIT = "Simulated transactions limit"
 
 
-def status_error_to_exception(message: dict) -> None:
+def raise_error_on_status(message: dict) -> None:
     """Raises an exception based on the error returned in the API server response
 
     Args:
@@ -34,31 +34,25 @@ def status_error_to_exception(message: dict) -> None:
         SDKError: If there is a non-specific error that is indicated by the server.
     """
 
-    if message["status"] == "ok" or "reason" in message:
+    if message["status"] == "ok" or "reason" not in message:
         return None  # This message does not contain an error
 
-    reason = message["reason"]
-
+    reason = message["reason"].rstrip().lstrip()
+    
     if reason == ErrorReason.RATE_LIMIT:
         raise WebsocketRateLimitError(reason)
-
     elif reason == ErrorReason.MESSAGE_TOO_LARGE:
         raise MessageSizeError(reason)
-
     elif ErrorReason.API_KEY_MISSING.value in reason:
         raise MissingAPIKeyError(reason)
-
     elif reason == ErrorReason.API_VERSION:
         raise InvalidAPIVersionError(reason)
-
-    elif ErrorReason.EVENT_RATE_LIMIT in reason:
-        raise EventRateLimitError(reason)
-
-    elif ErrorReason.SIMULATED_RATE_LIMIT in reason:
-        raise SimulatedEventRateLimitError(reason)
-
     elif ErrorReason.API_KEY_INVALID.value in reason:
         raise InvalidAPIKeyError(reason)
+    elif ErrorReason.EVENT_RATE_LIMIT in reason:
+        raise EventRateLimitError(reason)
+    elif ErrorReason.SIMULATED_RATE_LIMIT in reason:
+        raise SimulatedEventRateLimitError(reason)
     else:
         raise SDKError(reason)
 
