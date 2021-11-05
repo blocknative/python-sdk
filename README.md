@@ -10,6 +10,11 @@ With Pip:
 pip3 install blocknative-sdk
 ```
 
+Manual Install
+```bash
+python3 setup.py install
+```
+
 ## API Key
 To get started using the Blocknative Python SDK you must first obtain an API Key. You can do so by heading over to [Blocknative.com](https://explorer.blocknative.com/account)!
 
