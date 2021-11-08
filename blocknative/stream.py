@@ -73,7 +73,7 @@ class Config:
             The Config class as a dict excluding fields with a None value.
         """
         return {
-            "config": {
+            'config': {
                 to_camel_case(key): self.__dict__[key]
                 for key in self.__dict__
                 if self.__dict__[key] is not None
@@ -88,10 +88,10 @@ class Stream:
     # - Public instance variables -
     
     api_key: str
-    base_url: str = "wss://api.blocknative.com/v0"
-    blockchain: str = "ethereum"
+    base_url: str = 'wss://api.blocknative.com/v0'
+    blockchain: str = 'ethereum'
     network_id: int = 1
-    version: str = "1"
+    version: str = '1'
     global_filters: List[dict] = None
     valid_session: bool = True
 
@@ -125,15 +125,15 @@ class Stream:
             async def txn_handler(txn)
                 print(txn)
 
-            stream.subscribe("0x7a250d5630b4cf539739df2c5dacb4c659f2488d", txn_handler)
+            stream.subscribe('0x7a250d5630b4cf539739df2c5dacb4c659f2488d', txn_handler)
         """
 
-        if self.blockchain == "ethereum":
+        if self.blockchain == 'ethereum':
             address = address.lower()
 
         # Add this subscription to the registry
         self._subscription_registry[address] = Subscription(
-            callback, {"filters": filters, "abi": abi}, SubscriptionType.ADDRESS
+            callback, {'filters': filters, 'abi': abi}, SubscriptionType.ADDRESS
         )
 
         # Only send the message if we are already connected. The connection handler
@@ -141,7 +141,7 @@ class Stream:
         if self._is_connected():
             self._send_config_message(address, True, filters)
 
-    def subscribe_txn(self, tx_hash: str, callback: Callback, status: str = "sent"):
+    def subscribe_txn(self, tx_hash: str, callback: Callback, status: str = 'sent'):
         """Subscribes to an transaction to listen to transaction state changes.
 
         Args:
@@ -164,7 +164,7 @@ class Stream:
         try:
             return trio.run(self._connect)
         except KeyboardInterrupt:
-            print("keyboard interrupt")
+            print('keyboard interrupt')
             return None
 
     def send_message(self, message: str):
@@ -220,9 +220,9 @@ class Stream:
         # Raises an exception if the status of the message is an error
         raise_error_on_status(message)
 
-        if "event" in message and "transaction" in message["event"]:
+        if 'event' in message and 'transaction' in message['event']:
             # Ignore server echo and unsubscribe messages
-            if is_server_echo(message["event"]["eventCode"]):
+            if is_server_echo(message['event']['eventCode']):
                 return
 
             # Checks if the messsage is for a transaction subscription
@@ -230,16 +230,16 @@ class Stream:
 
                 # Find the matching subscription and run it's callback
                 if (
-                    message["event"]["transaction"]["hash"]
+                    message['event']['transaction']['hash']
                     in self._subscription_registry
                 ):
                     await self._subscription_registry[
-                        message["event"]["transaction"]["hash"]
-                    ].callback(message["event"]["transaction"])
+                        message['event']['transaction']['hash']
+                    ].callback(message['event']['transaction'])
 
             # Checks if the messsage is for an address subscription
             elif subscription_type(message) == SubscriptionType.ADDRESS:
-                watched_address = message["event"]["transaction"]["watchedAddress"]
+                watched_address = message['event']['transaction']['watchedAddress']
                 if watched_address in self._subscription_registry:
                     # Find the matching subscription and run it's callback
                     if 'transaction' in message['event']:
@@ -256,9 +256,9 @@ class Stream:
         def _unsubscribe(_):
             self.send_message(
                 self._build_payload(
-                    category_code="accountAddress",
-                    event_code="unwatch",
-                    data={"account": {"address": watched_address}},
+                    category_code='accountAddress',
+                    event_code='unwatch',
+                    data={'account': {'address': watched_address}},
                 )
             )
 
@@ -294,7 +294,7 @@ class Stream:
 
         # If the user set global_filters then send them once _message_dispatcher starts
         if self.global_filters:
-            self._send_config_message("global", None, self.global_filters)
+            self._send_config_message('global', None, self.global_filters)
 
         # Queues up the init message which will be sent once _message_dispatcher starts
         self._queue_init_message()
@@ -305,7 +305,7 @@ class Stream:
                 self._send_txn_watch_message(sub_id, status=subscription.data)
             elif subscription.sub_type == SubscriptionType.ADDRESS:
                 self._send_config_message(
-                    sub_id, True, subscription.data["filters"], subscription.data["abi"]
+                    sub_id, True, subscription.data['filters'], subscription.data['abi']
                 )
 
         try:
@@ -350,13 +350,13 @@ class Stream:
         """
         self.send_message(
             self._build_payload(
-                category_code="configs",
-                event_code="put",
+                category_code='configs',
+                event_code='put',
                 data=Config(scope, filters, abi, watch_address).as_dict(),
             )
         )
 
-    def _send_txn_watch_message(self, txn_hash: str, status: str = "sent"):
+    def _send_txn_watch_message(self, txn_hash: str, status: str = 'sent'):
         """Helper method which constructs and sends the payload for watching transactions.
 
         Args:
@@ -364,15 +364,15 @@ class Stream:
             status: The status of the transaction to receive events for.
         """
         txn = {
-            "transaction": {
-                "hash": txn_hash,
-                "startTime": int(time.time() * 1000),
-                "status": status,
+            'transaction': {
+                'hash': txn_hash,
+                'startTime': int(time.time() * 1000),
+                'status': status,
             }
         }
         self.send_message(
             self._build_payload(
-                "activeTransaction",
+                'activeTransaction',
                 event_code=status_to_event_code(status),
                 data=txn,
             )
@@ -396,20 +396,20 @@ class Stream:
             The constructed payload to send to the server.
         """
         return {
-            "timeStamp": datetime.now().isoformat(),
-            "dappId": self.api_key,
-            "version": self.version,
-            "blockchain": {
-                "system": self.blockchain,
-                "network": network_id_to_name(self.network_id),
+            'timeStamp': datetime.now().isoformat(),
+            'dappId': self.api_key,
+            'version': self.version,
+            'blockchain': {
+                'system': self.blockchain,
+                'network': network_id_to_name(self.network_id),
             },
-            "categoryCode": category_code,
-            "eventCode": event_code,
+            'categoryCode': category_code,
+            'eventCode': event_code,
             **data,
         }
 
     def _queue_init_message(self):
         """Sends the initialization message e.g. the checkDappId event."""
         self.send_message(
-            self._build_payload(category_code="initialize", event_code="checkDappId")
+            self._build_payload(category_code='initialize', event_code='checkDappId')
         )

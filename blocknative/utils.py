@@ -7,13 +7,13 @@ from blocknative.exceptions import *
 class ErrorReason(Enum):
     """Enum respresenting the different possible error states"""
 
-    MESSAGE_TOO_LARGE = "message too large"
-    RATE_LIMIT = "ratelimit"
-    API_VERSION = "api version not supported"
-    API_KEY_MISSING = "missing dappId"
-    API_KEY_INVALID = "is not a valid API key"
-    EVENT_RATE_LIMIT = "event rate limit"
-    SIMULATED_RATE_LIMIT = "Simulated transactions limit"
+    MESSAGE_TOO_LARGE = 'message too large'
+    RATE_LIMIT = 'ratelimit'
+    API_VERSION = 'api version not supported'
+    API_KEY_MISSING = 'missing dappId'
+    API_KEY_INVALID = 'is not a valid API key'
+    EVENT_RATE_LIMIT = 'event rate limit'
+    SIMULATED_RATE_LIMIT = 'Simulated transactions limit'
 
 
 def raise_error_on_status(message: dict) -> None:
@@ -34,10 +34,10 @@ def raise_error_on_status(message: dict) -> None:
         SDKError: If there is a non-specific error that is indicated by the server.
     """
 
-    if message["status"] == "ok" or "reason" not in message:
+    if message['status'] == 'ok' or 'reason' not in message:
         return None  # This message does not contain an error
 
-    reason = message["reason"].rstrip().lstrip()
+    reason = message['reason'].rstrip().lstrip()
     
     if reason == ErrorReason.RATE_LIMIT:
         raise WebsocketRateLimitError(reason)
@@ -65,13 +65,13 @@ def network_id_to_name(network_id: int) -> str:
         The network name.
     """
     return {
-        1: "main",
-        3: "ropsten",
-        4: "rinkeby",
-        5: "goerli",
-        42: "kovan",
-        100: "xdai",
-        56: "bsc-main",
+        1: 'main',
+        3: 'ropsten',
+        4: 'rinkeby',
+        5: 'goerli',
+        42: 'kovan',
+        100: 'xdai',
+        56: 'bsc-main',
     }[network_id]
 
 
@@ -80,15 +80,15 @@ def status_to_event_code(status: str):
     Takes in the server status code ``status`` and returns the event code equivalent.
     """
     return {
-        "sent": "txSent",
-        "pending": "txPool",
-        "pending-simulation": "txPoolSimulation",
-        "stuck": "txStuck",
-        "confirmed": "txConfirmed",
-        "failed": "txFailed",
-        "speedup": "txSpeedUp",
-        "cancel": "txCancel",
-        "dropped": "txDropped",
+        'sent': 'txSent',
+        'pending': 'txPool',
+        'pending-simulation': 'txPoolSimulation',
+        'stuck': 'txStuck',
+        'confirmed': 'txConfirmed',
+        'failed': 'txFailed',
+        'speedup': 'txSpeedUp',
+        'cancel': 'txCancel',
+        'dropped': 'txDropped',
     }[status]
 
 
@@ -102,15 +102,15 @@ def is_server_echo(event_code: str):
         True for if it is a server echo message, False otherwise.
     """
     return event_code in {
-        "txRequest",
-        "nsfFail",
-        "txRepeat",
-        "txAwaitingApproval",
-        "txConfirmReminder",
-        "txSendFail",
-        "txError",
-        "txUnderPriced",
-        "txSent",
+        'txRequest',
+        'nsfFail',
+        'txRepeat',
+        'txAwaitingApproval',
+        'txConfirmReminder',
+        'txSendFail',
+        'txError',
+        'txUnderPriced',
+        'txSent',
     }
 
 
@@ -135,12 +135,12 @@ def subscription_type(message: dict):
         True if it is a transaction subscription and False otherwise.
     """
     if (
-        "essentialFields" in message
-        and message["event"]["essentialFields"]["watchedAddress"] == "hash"
-        or message["event"]["categoryCode"] == "activeTransaction"
+        'essentialFields' in message
+        and message['event']['essentialFields']['watchedAddress'] == 'hash'
+        or message['event']['categoryCode'] == 'activeTransaction'
     ):
         return SubscriptionType.TRANSACTION
-    elif message["event"]["categoryCode"] == "activeAddress":
+    elif message['event']['categoryCode'] == 'activeAddress':
         return SubscriptionType.ADDRESS
 
 
@@ -151,6 +151,6 @@ def to_camel_case(string: str):
     Returns:
         The string in camel case
     """
-    return "".join(
-        word.title() if idx > 0 else word for idx, word in enumerate(string.split("_"))
+    return ''.join(
+        word.title() if idx > 0 else word for idx, word in enumerate(string.split('_'))
     )
