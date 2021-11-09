@@ -19,6 +19,7 @@ COPY blocknative blocknative/
 COPY tests tests/
 COPY setup.py .
 RUN pip3 install --upgrade pip
+RUN pip3 install pep8 && pip3 install --upgrade autopep8
 RUN pip3 install -r requirements.txt
 RUN python3 setup.py install
 ENV PYTHONPATH=.
