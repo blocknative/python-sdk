@@ -242,12 +242,10 @@ class Stream:
                 watched_address = message['event']['transaction']['watchedAddress']
                 if watched_address in self._subscription_registry:
                     # Find the matching subscription and run it's callback
-                    if 'transaction' in message['event']:
-                        transaction = message['event']['transaction']
-                        await self._subscription_registry[watched_address].callback(
-                            transaction,
-                            (lambda watched_address: self.unsubscribe(watched_address)),
-                        )
+                    await self._subscription_registry[watched_address].callback(
+                        message["event"],
+                        types.MethodType(self.unsubscribe(watched_address), self),
+                    )
 
     def unsubscribe(self, watched_address):
         # remove this subscription from the registry so that we don't execute the callback
