@@ -24,5 +24,5 @@ RUN pip3 install -r requirements.txt
 RUN python3 setup.py install
 ENV PYTHONPATH=.
 RUN python3 -m py_compile blocknative/*.py
-RUN python3 -m unittest tests/utils_test.py
+RUN python3 -m unittest discover -s tests
 CMD echo Python SDK

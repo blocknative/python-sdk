@@ -240,13 +240,13 @@ class Stream:
             # Checks if the messsage is for an address subscription
             elif subscription_type(message) == SubscriptionType.ADDRESS:
                 watched_address = message['event']['transaction']['watchedAddress']
-                if watched_address in self._subscription_registry:
+                if watched_address in self._subscription_registry and watched_address is not None:
                     # Find the matching subscription and run it's callback
                     if 'transaction' in message['event']:
                         transaction = message['event']['transaction']
                         await self._subscription_registry[watched_address].callback(
                             transaction,
-                            (lambda watched_address: self.unsubscribe(watched_address)),
+                            (lambda: self.unsubscribe(watched_address)),
                         )
 
     def unsubscribe(self, watched_address):
