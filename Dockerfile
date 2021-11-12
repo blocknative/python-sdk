@@ -13,7 +13,6 @@ RUN rm -rf /var/lib/apt/lists/*
 ARG PROJECT=python-sdk
 WORKDIR /workspaces/${PROJECT}
 
-
 COPY requirements.txt .
 COPY README.md .
 COPY blocknative blocknative/
