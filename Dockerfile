@@ -20,8 +20,9 @@ COPY tests tests/
 COPY setup.py .
 RUN pip3 install --upgrade pip
 RUN pip3 install -r requirements.txt
+RUN pip3 install --upgrade autopep8
 RUN python3 setup.py install
 ENV PYTHONPATH=.
 RUN python3 -m py_compile blocknative/*.py
-RUN python3 -m unittest discover -s tests
+RUN python3 -m unittest discover -s tests -p '*test.py'
 CMD echo Python SDK

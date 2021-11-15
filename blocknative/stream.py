@@ -7,8 +7,8 @@ import time
 from dataclasses import dataclass, field
 from queue import Queue, Empty
 from typing import List, Mapping, Callable, Union
-import types
 import trio
+import logging
 from trio_websocket import (
     open_websocket_url,
     ConnectionClosed,
@@ -24,13 +24,16 @@ from blocknative.utils import (
     SubscriptionType,
     to_camel_case,
 )
+from blocknative import __version__ as API_VERSION
 
 PING_INTERVAL = 15
 PING_TIMEOUT = 10
 MESSAGE_SEND_INTERVAL = 0.021  # 21ms
 
-Callback = Callable[[dict, Callable], None]
+BN_BASE_URL = 'wss://api.blocknative.com/v0'
+BN_ETHEREUM = 'ethereum'
 
+Callback = Callable[[dict, Callable], None]
 
 @dataclass
 class Subscription:
@@ -85,18 +88,12 @@ class Config:
 class Stream:
     """Stream class used to connect to Blocknative's WebSocket API."""
 
-    # - Public instance variables -
-    
     api_key: str
-    base_url: str = 'wss://api.blocknative.com/v0'
-    blockchain: str = 'ethereum'
+    blockchain: str = BN_ETHEREUM
     network_id: int = 1
     version: str = '1'
     global_filters: List[dict] = None
     valid_session: bool = True
-
-    # - Private instance variables -
-
     _ws: WebSocketConnection = field(default=None, init=False)
     _message_queue: Queue = field(default=Queue(), init=False)
 
@@ -128,7 +125,7 @@ class Stream:
             stream.subscribe('0x7a250d5630b4cf539739df2c5dacb4c659f2488d', txn_handler)
         """
 
-        if self.blockchain == 'ethereum':
+        if self.blockchain == BN_ETHEREUM:
             address = address.lower()
 
         # Add this subscription to the registry
@@ -159,10 +156,10 @@ class Stream:
         if self._is_connected():
             self._send_txn_watch_message(tx_hash, status)
 
-    def connect(self):
+    def connect(self, base_url:str = BN_BASE_URL):
         """Initializes the connection to the WebSocket server."""
         try:
-            return trio.run(self._connect)
+            return trio.run(self._connect, base_url)
         except KeyboardInterrupt:
             print('keyboard interrupt')
             return None
@@ -173,6 +170,7 @@ class Stream:
         Args:
             message: The message to send.
         """
+        logging.debug('Sending: {}' % message)
         self._message_queue.put(message)
 
     async def _message_dispatcher(self):
@@ -220,34 +218,29 @@ class Stream:
         # Raises an exception if the status of the message is an error
         raise_error_on_status(message)
 
-        if 'event' in message and 'transaction' in message['event']:
+        if 'event' in message: 
+            event = message['event']
             # Ignore server echo and unsubscribe messages
-            if is_server_echo(message['event']['eventCode']):
+            if is_server_echo(event['eventCode']):
                 return
 
-            # Checks if the messsage is for a transaction subscription
-            if subscription_type(message) == SubscriptionType.TRANSACTION:
-
-                # Find the matching subscription and run it's callback
-                if (
-                    message['event']['transaction']['hash']
-                    in self._subscription_registry
-                ):
-                    await self._subscription_registry[
-                        message['event']['transaction']['hash']
-                    ].callback(message['event']['transaction'])
-
-            # Checks if the messsage is for an address subscription
-            elif subscription_type(message) == SubscriptionType.ADDRESS:
-                watched_address = message['event']['transaction']['watchedAddress']
-                if watched_address in self._subscription_registry and watched_address is not None:
+            if 'transaction' in event:
+                event_transaction = event['transaction']
+                # Checks if the messsage is for a transaction subscription
+                if subscription_type(message) == SubscriptionType.TRANSACTION:
                     # Find the matching subscription and run it's callback
-                    if 'transaction' in message['event']:
-                        transaction = message['event']['transaction']
-                        await self._subscription_registry[watched_address].callback(
-                            transaction,
-                            (lambda: self.unsubscribe(watched_address)),
-                        )
+                    transaction_hash = event_transaction['hash']
+                    if transaction_hash in self._subscription_registry:
+                        transaction = self._flatten_event_to_transaction(event)
+                        await self._subscription_registry[transaction_hash].callback(transaction)
+
+                # Checks if the messsage is for an address subscription
+                elif subscription_type(message) == SubscriptionType.ADDRESS:
+                    watched_address = event_transaction['watchedAddress']
+                    if watched_address in self._subscription_registry and watched_address is not None:
+                        # Find the matching subscription and run it's callback
+                        transaction = self._flatten_event_to_transaction(event)
+                        await self._subscription_registry[watched_address].callback(transaction,(lambda: self.unsubscribe(watched_address)))
 
     def unsubscribe(self, watched_address):
         # remove this subscription from the registry so that we don't execute the callback
@@ -284,7 +277,7 @@ class Stream:
                 await self._ws.ping()
             await trio.sleep(PING_INTERVAL)
 
-    async def _handle_connection(self):
+    async def _handle_connection(self, base_url:str):
         """Handles the setup once the websocket connection is established, as well as,
         handles reconnect if the websocket closes for any reason.
 
@@ -315,14 +308,16 @@ class Stream:
                 nursery.start_soon(self._message_dispatcher)
         except ConnectionClosed as cc:
             # If server times the connection out or drops, reconnect
-            await self._connect()
+            await trio.sleep(0.5)
+            await self._connect(base_url)
 
-    async def _connect(self):
+    async def _connect(self, base_url):
         try:
-            async with open_websocket_url(self.base_url) as ws:
+            async with open_websocket_url(base_url) as ws:
                 self._ws = ws
-                await self._handle_connection()
+                await self._handle_connection(base_url)
         except HandshakeError as e:
+            logging.exception('Handshake failed')
             return False
 
     def _is_connected(self) -> bool:
@@ -398,7 +393,7 @@ class Stream:
         return {
             'timeStamp': datetime.now().isoformat(),
             'dappId': self.api_key,
-            'version': self.version,
+            'version': API_VERSION,
             'blockchain': {
                 'system': self.blockchain,
                 'network': network_id_to_name(self.network_id),
@@ -413,3 +408,25 @@ class Stream:
         self.send_message(
             self._build_payload(category_code='initialize', event_code='checkDappId')
         )
+
+    def _flatten_event_to_transaction(self, event:dict):
+        transaction = {}
+        eventcopy = dict(event)
+        del eventcopy['dappId']
+        if 'transaction' in eventcopy:
+            txn = eventcopy['transaction']
+            for k in txn.keys():
+                transaction[k] = txn[k]
+            del eventcopy['transaction']
+        if 'blockchain' in eventcopy:
+            bc = eventcopy['blockchain']
+            for k in bc.keys():
+                transaction[k] = bc[k]
+            del eventcopy['blockchain']
+        if 'contractCall' in eventcopy:
+            transaction['contractCall'] = eventcopy['contractCall']
+            del eventcopy['contractCall']
+        for k in eventcopy:
+            if not isinstance(k, dict) and not isinstance(k, list):
+                transaction[k] = eventcopy[k]
+        return transaction

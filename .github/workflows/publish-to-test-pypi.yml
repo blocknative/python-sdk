@@ -14,7 +14,23 @@ jobs:
         uses: actions/setup-python@v1
         with:
           python-version: 3.9
-      - name: Install pypa/build
+      - name: upgrade pip
+        run: >-
+          python -m
+          pip install --upgrade pip
+      - name: py requirements
+        run: >-
+          python -m
+          pip install -r requirements.txt          
+      - name: py compile
+        run: >-
+          python -m
+          py_compile blocknative/*.py
+      - name: python unittest
+        run: >-
+          python -m
+          unittest discover -s tests -p '*test.py'
+      - name: build
         run: >-
           python -m
           pip install
