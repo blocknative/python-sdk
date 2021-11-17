@@ -39,19 +39,19 @@ def raise_error_on_status(message: dict) -> None:
 
     reason = message['reason'].rstrip().lstrip()
     
-    if reason == ErrorReason.RATE_LIMIT:
+    if reason == ErrorReason.RATE_LIMIT.value:
         raise WebsocketRateLimitError(reason)
-    elif reason == ErrorReason.MESSAGE_TOO_LARGE:
+    elif reason == ErrorReason.MESSAGE_TOO_LARGE.value:
         raise MessageSizeError(reason)
     elif ErrorReason.API_KEY_MISSING.value in reason:
         raise MissingAPIKeyError(reason)
-    elif reason == ErrorReason.API_VERSION:
+    elif reason == ErrorReason.API_VERSION.value:
         raise InvalidAPIVersionError(reason)
     elif ErrorReason.API_KEY_INVALID.value in reason:
         raise InvalidAPIKeyError(reason)
-    elif ErrorReason.EVENT_RATE_LIMIT in reason:
+    elif ErrorReason.EVENT_RATE_LIMIT.value in reason:
         raise EventRateLimitError(reason)
-    elif ErrorReason.SIMULATED_RATE_LIMIT in reason:
+    elif ErrorReason.SIMULATED_RATE_LIMIT.value in reason:
         raise SimulatedEventRateLimitError(reason)
     else:
         raise SDKError(reason)
