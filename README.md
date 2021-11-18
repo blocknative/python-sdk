@@ -5,17 +5,21 @@
 # Blocknative Python SDK
 
 ## Install
+
 With Pip:
+
 ```bash
 pip3 install blocknative-sdk
 ```
 
 Manual Install
+
 ```bash
 python3 setup.py install
 ```
 
 ## API Key
+
 To get started using the Blocknative Python SDK you must first obtain an API Key. You can do so by heading over to [Blocknative.com](https://explorer.blocknative.com/account)!
 
 ## Usage
@@ -98,7 +102,6 @@ stream.subscribe_address(curve_fi_address, txn_handler, filter=filters)
 stream.connect()
 ```
 
-
 ### Using Global Filters
 
 Similar as above but this time we use global filters which will apply to all subscriptions.
@@ -126,6 +129,32 @@ sushi_swap_address = '0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f'
 stream.subscribe_address(curve_fi_address, txn_handler)
 stream.subscribe_address(uniswap_v2_address, txn_handler)
 stream.subscribe_address(sushi_swap_address, txn_handler)
+
+# Start the websocket connection and start receiving events!
+stream.connect()
+```
+
+### Connecting to Binance Smart Chain
+
+```python
+from blocknative.stream import Stream
+import json
+
+BSC_NETWORK_ID = 56
+
+# Initialize the stream - specify network_id `56` to connect to bsc main
+stream = Stream('<API_KEY>', network_id=BSC_NETWORK_ID)
+
+# Define your transaction handler which has the context of a specific subscription.
+async def txn_handler(txn, unsubscribe):
+    # Output the transaction data to the console
+    print(json.dumps(txn, indent=4))
+
+# Define the address you want to watch
+pancakeswap_v2_address = '0x10ed43c718714eb63d5aa57b78b54704e256024e'
+
+# Register the subscription
+stream.subscribe_address(pancakeswap_v2_address, txn_handler)
 
 # Start the websocket connection and start receiving events!
 stream.connect()
