@@ -140,8 +140,10 @@ stream.connect()
 from blocknative.stream import Stream
 import json
 
+BSC_NETWORK_ID = 56
+
 # Initialize the stream - specify network_id `56` to connect to bsc main
-stream = Stream('<API_KEY>', network_id=56)
+stream = Stream('<API_KEY>', network_id=BSC_NETWORK_ID)
 
 # Define your transaction handler which has the context of a specific subscription.
 async def txn_handler(txn, unsubscribe):
