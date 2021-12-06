@@ -6,10 +6,15 @@
 
 ## Install
 
-With Pip:
+VirutalEnv QuickStart
 
 ```bash
-pip3 install blocknative-sdk
+$ virtualenv bn
+$ . ./bn/bin/activate
+(bn) $ pip3 install --upgrade pip
+(bn) $ pip3 install blocknative-sdk
+(bn) $ curl 'https://raw.githubusercontent.com/blocknative/python-sdk/main/examples/subscribe.py' > subscribe.py
+(bn) $ python3 subscribe.py myapikey.key
 ```
 
 Manual Install

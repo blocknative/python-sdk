@@ -34,6 +34,6 @@ setup(
     url="https://github.com/blocknative/python-sdk",
     keywords="ethereum,api,transactions,blocknative",
     packages=["blocknative"],
-    python_requires=">=3.9",
+    python_requires=">=3.7",
     install_requires=requirements,
 )
