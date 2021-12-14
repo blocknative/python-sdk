@@ -32,6 +32,8 @@ MESSAGE_SEND_INTERVAL = 0.021  # 21ms
 
 BN_BASE_URL = 'wss://api.blocknative.com/v0'
 BN_ETHEREUM = 'ethereum'
+BN_ETHEREUM_ID = 1
+BN_STREAM_CLASS_VERSION = '1.1'
 
 Callback = Callable[[dict, Callable], None]
 
@@ -84,23 +86,23 @@ class Config:
         }
 
 
-@dataclass
 class Stream:
     """Stream class used to connect to Blocknative's WebSocket API."""
 
     api_key: str
     blockchain: str = BN_ETHEREUM
-    network_id: int = 1
-    version: str = '1'
+    network_id: int = BN_ETHEREUM_ID
+    version: str = BN_STREAM_CLASS_VERSION
     global_filters: List[dict] = None
     valid_session: bool = True
-    _ws: WebSocketConnection = field(default=None, init=False)
-    _message_queue: Queue = field(default=Queue(), init=False)
+    _ws: WebSocketConnection = None
+    _message_queue: Queue = Queue()
+    _subscription_registry: Mapping[str, Subscription] = {}
 
-    # Registry of active subscriptions.
-    _subscription_registry: Mapping[str, Subscription] = field(
-        default_factory=dict, init=False
-    )
+    def __init__(self, api_key: str, blockchain: str = BN_ETHEREUM, network_id: int = BN_ETHEREUM_ID):
+        self.api_key=api_key
+        self.blockchain=blockchain
+        self.network_id=network_id
 
     def subscribe_address(
         self,
@@ -156,7 +158,7 @@ class Stream:
         if self._is_connected():
             self._send_txn_watch_message(tx_hash, status)
 
-    def connect(self, base_url:str = BN_BASE_URL):
+    def connect(self, base_url: str = BN_BASE_URL):
         """Initializes the connection to the WebSocket server."""
         try:
             return trio.run(self._connect, base_url)
@@ -170,8 +172,9 @@ class Stream:
         Args:
             message: The message to send.
         """
-        logging.debug('Sending: {}' % message)
         self._message_queue.put(message)
+        logging.debug('Sending: %s', message)
+
 
     async def _message_dispatcher(self):
         """In a loop: Polls send message queue for latest messages to send to server.
