@@ -16,8 +16,9 @@ if __name__ == '__main__':
             with open(apikeyfile, 'r') as apikey:
                 keystring = apikey.readline().rstrip().lstrip()
                 stream = BNStream(keystring)
-                stream.subscribe_address(monitor_address, txn_handler)
+                filter = {'network': 'main'}
+                stream.subscribe_address(monitor_address, txn_handler, filters=[filter])
                 stream.connect()
     except Exception as e:
-        print('API Failed: %s' % str(e))
+        logging.error('API Failed: %s', str(e))
         traceback.print_exc(e)
