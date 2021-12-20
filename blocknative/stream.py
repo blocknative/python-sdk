@@ -2,13 +2,13 @@
 Blocknative Stream.
 """
 import json
-from datetime import datetime
 import time
-from dataclasses import dataclass, field
+import logging
+from datetime import datetime
 from queue import Queue, Empty
 from typing import List, Mapping, Callable, Union
+from dataclasses import dataclass
 import trio
-import logging
 from trio_websocket import (
     open_websocket_url,
     ConnectionClosed,
@@ -216,12 +216,12 @@ class Stream:
         # This should never happen but indicates an invalid message from the server
         if not 'status' in message:
             self.valid_session = False
-            return 
+            return
 
         # Raises an exception if the status of the message is an error
         raise_error_on_status(message)
 
-        if 'event' in message: 
+        if 'event' in message:
             event = message['event']
             # Ignore server echo and unsubscribe messages
             if is_server_echo(event['eventCode']):
@@ -234,7 +234,7 @@ class Stream:
                     # Find the matching subscription and run it's callback
                     transaction_hash = event_transaction['hash']
                     if transaction_hash in self._subscription_registry:
-                        transaction = self._flatten_event_to_transaction(event)
+                        transaction = self.flatten_event_to_transaction(event)
                         await self._subscription_registry[transaction_hash].callback(transaction)
 
                 # Checks if the messsage is for an address subscription
@@ -242,11 +242,12 @@ class Stream:
                     watched_address = event_transaction['watchedAddress']
                     if watched_address in self._subscription_registry and watched_address is not None:
                         # Find the matching subscription and run it's callback
-                        transaction = self._flatten_event_to_transaction(event)
+                        transaction = self.flatten_event_to_transaction(event)
                         await self._subscription_registry[watched_address].callback(transaction,(lambda: self.unsubscribe(watched_address)))
 
     def unsubscribe(self, watched_address):
-        # remove this subscription from the registry so that we don't execute the callback
+        """remove this subscription from the registry so that we don't execute the callback
+        """
         del self._subscription_registry[watched_address]
 
         def _unsubscribe(_):
@@ -309,7 +310,7 @@ class Stream:
                 nursery.start_soon(self._heartbeat)
                 nursery.start_soon(self._poll_messages)
                 nursery.start_soon(self._message_dispatcher)
-        except ConnectionClosed as cc:
+        except ConnectionClosed as _:
             # If server times the connection out or drops, reconnect
             await trio.sleep(0.5)
             await self._connect(base_url)
@@ -319,8 +320,8 @@ class Stream:
             async with open_websocket_url(base_url) as ws:
                 self._ws = ws
                 await self._handle_connection(base_url)
-        except HandshakeError as e:
-            logging.exception('Handshake failed')
+        except HandshakeError as _:
+            logging.exception('Handshake failed', exec_info=True)
             return False
 
     def _is_connected(self) -> bool:
@@ -393,18 +394,20 @@ class Stream:
         Returns:
             The constructed payload to send to the server.
         """
-        return {
+        payload = {
             'timeStamp': datetime.now().isoformat(),
             'dappId': self.api_key,
             'version': API_VERSION,
             'blockchain': {
                 'system': self.blockchain,
-                'network': network_id_to_name(self.network_id),
+                'network': network_id_to_name(self.blockchain, self.network_id)
             },
             'categoryCode': category_code,
             'eventCode': event_code,
             **data,
         }
+
+        return payload
 
     def _queue_init_message(self):
         """Sends the initialization message e.g. the checkDappId event."""
@@ -412,7 +415,14 @@ class Stream:
             self._build_payload(category_code='initialize', event_code='checkDappId')
         )
 
-    def _flatten_event_to_transaction(self, event:dict):
+    @staticmethod
+    def flatten_event_to_transaction(event:dict):
+        """Convert event into MPEX output
+        Args:
+            event: the structured event data
+        Returns:
+            The flattened transaction payload
+        """
         transaction = {}
         eventcopy = dict(event)
         del eventcopy['dappId']
@@ -422,9 +432,9 @@ class Stream:
                 transaction[k] = txn[k]
             del eventcopy['transaction']
         if 'blockchain' in eventcopy:
-            bc = eventcopy['blockchain']
-            for k in bc.keys():
-                transaction[k] = bc[k]
+            chain = eventcopy['blockchain']
+            for k in chain.keys():
+                transaction[k] = chain[k]
             del eventcopy['blockchain']
         if 'contractCall' in eventcopy:
             transaction['contractCall'] = eventcopy['contractCall']

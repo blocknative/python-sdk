@@ -1,8 +1,9 @@
+"""stream unit test"""
 import unittest
 import json
 from blocknative.stream import Stream as BNStream
 
-example_transaction = """
+EXAMPLE_TRANSACTION = """
 {
     "timeStamp": "2021-11-12T16:52:27.107Z",
     "categoryCode": "activeAddress",
@@ -65,7 +66,7 @@ example_transaction = """
     }
 }"""
 
-flattened_example = """
+FLATTENED_EXAMPLE = """
 {
   "status": "pending",
   "monitorId": "Geth_1_C2_PROD",
@@ -109,21 +110,21 @@ flattened_example = """
 }
 """
 
-
 class TestBlocknativeEventProperlyPackaged(unittest.TestCase):
-  def test_fields_are_present_upon_flattening(self):
-      expected = json.loads(flattened_example)
-      event = json.loads(example_transaction)
-      stream = BNStream('')
-      flattened = stream._flatten_event_to_transaction(event)
-      self.assertIsNotNone(flattened)
-      for k in expected.keys():
-          self.assertTrue(k in flattened, "expected field: "+k)
+    def test_fields_are_present_upon_flattening(self):
+        """unit test"""
+        expected = json.loads(FLATTENED_EXAMPLE)
+        event = json.loads(EXAMPLE_TRANSACTION)
+        stream = BNStream('')
+        flattened = stream.flatten_event_to_transaction(event)
+        self.assertIsNotNone(flattened)
+        for k in expected.keys():
+            self.assertTrue(k in flattened, "expected field: "+k)
 
-      not_expected = ['transaction', 'blockchain', 'dappId']
-      for k in not_expected:
-        self.assertFalse(k in flattened, "Did not expect: "+k)
+        not_expected = ['transaction', 'blockchain', 'dappId']
+        for k in not_expected:
+            self.assertFalse(k in flattened, "Did not expect: "+k)
 
 
 if __name__ == '__main__':
-  unittest.main()
+    unittest.main()

@@ -1,4 +1,5 @@
-"""Error classes for all possible exceptions.
+"""
+Error classes for all possible exceptions.
 """
 class SDKError(Exception):
     """Base class for Blocknative sdk errors"""

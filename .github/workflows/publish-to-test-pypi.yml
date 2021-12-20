@@ -26,11 +26,22 @@ jobs:
         run: >-
           python -m
           py_compile blocknative/*.py
+      - name: install pylint
+        run: >-
+          python -m
+          pip install
+          pylint
+          --user
+      - name: check with pylint
+        run: >-
+          python -m
+          pylint
+          blocknative
       - name: python unittest
         run: >-
           python -m
           unittest discover -s tests -p '*test.py'
-      - name: build
+      - name: install build
         run: >-
           python -m
           pip install

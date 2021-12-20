@@ -1,8 +1,9 @@
 """Helper methods used throughout the codebase.
 """
 from enum import Enum
-from blocknative.exceptions import *
+from blocknative.exceptions import WebsocketRateLimitError, MessageSizeError, MissingAPIKeyError, InvalidAPIKeyError, InvalidAPIVersionError, EventRateLimitError, SimulatedEventRateLimitError, SDKError
 
+BN_BITCOIN = 'bitcoin'
 
 class ErrorReason(Enum):
     """Enum respresenting the different possible error states"""
@@ -38,42 +39,68 @@ def raise_error_on_status(message: dict) -> None:
         return None  # This message does not contain an error
 
     reason = message['reason'].rstrip().lstrip()
-    
+
     if reason == ErrorReason.RATE_LIMIT.value:
         raise WebsocketRateLimitError(reason)
-    elif reason == ErrorReason.MESSAGE_TOO_LARGE.value:
+    if reason == ErrorReason.MESSAGE_TOO_LARGE.value:
         raise MessageSizeError(reason)
-    elif ErrorReason.API_KEY_MISSING.value in reason:
+    if ErrorReason.API_KEY_MISSING.value in reason:
         raise MissingAPIKeyError(reason)
-    elif reason == ErrorReason.API_VERSION.value:
+    if reason == ErrorReason.API_VERSION.value:
         raise InvalidAPIVersionError(reason)
-    elif ErrorReason.API_KEY_INVALID.value in reason:
+    if ErrorReason.API_KEY_INVALID.value in reason:
         raise InvalidAPIKeyError(reason)
-    elif ErrorReason.EVENT_RATE_LIMIT.value in reason:
+    if ErrorReason.EVENT_RATE_LIMIT.value in reason:
         raise EventRateLimitError(reason)
-    elif ErrorReason.SIMULATED_RATE_LIMIT.value in reason:
+    if ErrorReason.SIMULATED_RATE_LIMIT.value in reason:
         raise SimulatedEventRateLimitError(reason)
-    else:
-        raise SDKError(reason)
+    raise SDKError(reason)
 
 
-def network_id_to_name(network_id: int) -> str:
+def network_id_to_name_ethereum(network_id: int) -> str:
     """Takes a network id and returns the network name.
     Args:
         network_id: The id of the network
     Returns:
         The network name.
     """
-    return {
+    network_id_map = {
         1: 'main',
         3: 'ropsten',
         4: 'rinkeby',
         5: 'goerli',
         42: 'kovan',
-        100: 'xdai',
         56: 'bsc-main',
-    }[network_id]
+        100: 'xdai',
+    }
 
+    return network_id_map[network_id]
+
+def network_id_to_name_bitcoin(network_id: int) -> str:
+    """Takes a network id and returns the network name.
+    Args:
+        network_id: The id of the network
+    Returns:
+        The network name.
+    """
+    network_id_map = {
+        1: 'main',
+        2: 'testnet',
+    }
+    return network_id_map[network_id]
+
+def network_id_to_name(blockchain: str, network_id: int) -> str:
+    """
+    Takes a blockchain and network id and returns the network name.
+    Args:
+        blockchain: name of blockchain
+        network_id: The id of the network
+    Returns:
+        The network name.
+    """
+    if blockchain == BN_BITCOIN:
+        return network_id_to_name_bitcoin(network_id)
+    return network_id_to_name_ethereum(network_id)
 
 def status_to_event_code(status: str):
     """
@@ -140,8 +167,9 @@ def subscription_type(message: dict):
         or message['event']['categoryCode'] == 'activeTransaction'
     ):
         return SubscriptionType.TRANSACTION
-    elif message['event']['categoryCode'] == 'activeAddress':
+    if message['event']['categoryCode'] == 'activeAddress':
         return SubscriptionType.ADDRESS
+    raise SDKError('Unparseable subscription type')
 
 
 def to_camel_case(string: str):

@@ -14,17 +14,21 @@ ARG PROJECT=python-sdk
 WORKDIR /workspaces/${PROJECT}
 
 COPY requirements.txt .
+RUN pip3 install --upgrade pip
+RUN pip3 install -r requirements.txt
+
 COPY README.md .
 COPY blocknative blocknative/
 COPY tests tests/
 COPY setup.py .
+COPY .pylintrc .
 
-RUN pip3 install --upgrade pip
-RUN pip3 install -r requirements.txt
 RUN pip3 install --upgrade autopep8
+RUN pip3 install pylint
 RUN python3 setup.py install
 
 ENV PYTHONPATH=.
 RUN python3 -m py_compile blocknative/*.py
+RUN pylint blocknative/
 RUN python3 -m unittest discover -s tests -p '*test.py'
 CMD echo Python SDK
