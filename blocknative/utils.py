@@ -72,6 +72,7 @@ def network_id_to_name(network_id: int) -> str:
         42: 'kovan',
         100: 'xdai',
         56: 'bsc-main',
+        137: 'matic-main'
     }[network_id]
 
 
