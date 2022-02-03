@@ -99,10 +99,11 @@ class Stream:
     _message_queue: Queue = Queue()
     _subscription_registry: Mapping[str, Subscription] = {}
 
-    def __init__(self, api_key: str, blockchain: str = BN_ETHEREUM, network_id: int = BN_ETHEREUM_ID):
+    def __init__(self, api_key: str, blockchain: str = BN_ETHEREUM, network_id: int = BN_ETHEREUM_ID, global_filters: List[dict] = global_filters):
         self.api_key=api_key
         self.blockchain=blockchain
         self.network_id=network_id
+        self.global_filters=global_filters
 
     def subscribe_address(
         self,
