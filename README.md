@@ -6,7 +6,7 @@
 
 ## Install
 
-VirutalEnv QuickStart
+VirtualEnv QuickStart
 
 ```bash
 $ virtualenv bn
@@ -53,7 +53,7 @@ stream.subscribe_address(uniswap_v2_address, txn_handler)
 stream.connect()
 ```
 
-### Unsubcribing
+### Unsubscribing
 
 ```python
 from blocknative.stream import Stream
