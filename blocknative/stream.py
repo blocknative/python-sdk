@@ -310,7 +310,7 @@ class Stream:
                 nursery.start_soon(self._heartbeat)
                 nursery.start_soon(self._poll_messages)
                 nursery.start_soon(self._message_dispatcher)
-        except ConnectionClosed as cc:
+        except (ConnectionClosed, trio.MultiError) as error:
             # If server times the connection out or drops, reconnect
             await trio.sleep(0.5)
             await self._connect(base_url)
