@@ -91,7 +91,7 @@ class Stream:
     """Stream class used to connect to Blocknative's WebSocket API.
 
     Args:
-    
+
         api_key: The api key. Get one at `blocknative.com <https://explorer.blocknative.com/?signup=true/>`_.
         blockchain: The blockchain you want to connect to. Default is ``ethereum``.
         network_id: The id of the network. For instance, ``4`` for Ethereum Rinkeby.
