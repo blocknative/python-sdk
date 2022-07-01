@@ -23,3 +23,6 @@ wheels/
 # IDE
 /.vscode/
 .idea/
+
+# Misc
+misc/
