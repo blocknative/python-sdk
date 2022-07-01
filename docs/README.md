@@ -1,4 +1,0 @@
-### Building docs
-```
-make html
-```
