@@ -12,6 +12,9 @@ pytest = "*"
 pytest-trio = "*"
 pytest-mock = "*"
 twine = "*"
+sphinx = "*"
+sphinx-rtd-theme = "*"
+myst-parser = "*"
 
 [dev-packages]
 pylint = "*"

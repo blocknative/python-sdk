@@ -30,12 +30,13 @@ PING_INTERVAL = 15
 PING_TIMEOUT = 10
 MESSAGE_SEND_INTERVAL = 0.021  # 21ms
 
-BN_BASE_URL = 'wss://api.blocknative.com/v0'
-BN_ETHEREUM = 'ethereum'
+BN_BASE_URL = "wss://api.blocknative.com/v0"
+BN_ETHEREUM = "ethereum"
 BN_ETHEREUM_ID = 1
-BN_STREAM_CLASS_VERSION = '1.1'
+BN_STREAM_CLASS_VERSION = "1.1"
 
 Callback = Callable[[dict, Callable], None]
+
 
 @dataclass
 class Subscription:
@@ -78,7 +79,7 @@ class Config:
             The Config class as a dict excluding fields with a None value.
         """
         return {
-            'config': {
+            "config": {
                 to_camel_case(key): self.__dict__[key]
                 for key in self.__dict__
                 if self.__dict__[key] is not None
@@ -87,7 +88,15 @@ class Config:
 
 
 class Stream:
-    """Stream class used to connect to Blocknative's WebSocket API."""
+    """Stream class used to connect to Blocknative's WebSocket API.
+
+    Args:
+    
+        api_key: The api key. Get one at `blocknative.com <https://explorer.blocknative.com/?signup=true/>`_.
+        blockchain: The blockchain you want to connect to. Default is ``ethereum``.
+        network_id: The id of the network. For instance, ``4`` for Ethereum Rinkeby.
+        global_filters: The filters that will be applied globally to the stream.
+    """
 
     api_key: str
     blockchain: str = BN_ETHEREUM
@@ -99,11 +108,17 @@ class Stream:
     _message_queue: Queue = Queue()
     _subscription_registry: Mapping[str, Subscription] = {}
 
-    def __init__(self, api_key: str, blockchain: str = BN_ETHEREUM, network_id: int = BN_ETHEREUM_ID, global_filters: List[dict] = global_filters):
-        self.api_key=api_key
-        self.blockchain=blockchain
-        self.network_id=network_id
-        self.global_filters=global_filters
+    def __init__(
+        self,
+        api_key: str,
+        blockchain: str = BN_ETHEREUM,
+        network_id: int = BN_ETHEREUM_ID,
+        global_filters: List[dict] = global_filters,
+    ):
+        self.api_key = api_key
+        self.blockchain = blockchain
+        self.network_id = network_id
+        self.global_filters = global_filters
 
     def subscribe_address(
         self,
@@ -120,12 +135,6 @@ class Stream:
             callback: The callback function that will get executed for this subscription.
             filters: The filters by which to filter the transactions associated with the address.
             abi: The ABI of the contract. Used if `address` is a contract address.
-
-        Examples:
-            async def txn_handler(txn)
-                print(txn)
-
-            stream.subscribe('0x7a250d5630b4cf539739df2c5dacb4c659f2488d', txn_handler)
         """
 
         if self.blockchain == BN_ETHEREUM:
@@ -133,7 +142,7 @@ class Stream:
 
         # Add this subscription to the registry
         self._subscription_registry[address] = Subscription(
-            callback, {'filters': filters, 'abi': abi}, SubscriptionType.ADDRESS
+            callback, {"filters": filters, "abi": abi}, SubscriptionType.ADDRESS
         )
 
         # Only send the message if we are already connected. The connection handler
@@ -141,7 +150,7 @@ class Stream:
         if self._is_connected():
             self._send_config_message(address, True, filters)
 
-    def subscribe_txn(self, tx_hash: str, callback: Callback, status: str = 'sent'):
+    def subscribe_txn(self, tx_hash: str, callback: Callback, status: str = "sent"):
         """Subscribes to an transaction to listen to transaction state changes.
 
         Args:
@@ -164,7 +173,7 @@ class Stream:
         try:
             return trio.run(self._connect, base_url)
         except KeyboardInterrupt:
-            print('keyboard interrupt')
+            print("keyboard interrupt")
             return None
 
     def send_message(self, message: str):
@@ -174,8 +183,7 @@ class Stream:
             message: The message to send.
         """
         self._message_queue.put(message)
-        logging.debug('Sending: %s', message)
-
+        logging.debug("Sending: %s", message)
 
     async def _message_dispatcher(self):
         """In a loop: Polls send message queue for latest messages to send to server.
@@ -215,36 +223,43 @@ class Stream:
             message: The incoming websocket message.
         """
         # This should never happen but indicates an invalid message from the server
-        if not 'status' in message:
+        if not "status" in message:
             self.valid_session = False
-            return 
+            return
 
         # Raises an exception if the status of the message is an error
         raise_error_on_status(message)
 
-        if 'event' in message: 
-            event = message['event']
+        if "event" in message:
+            event = message["event"]
             # Ignore server echo and unsubscribe messages
-            if is_server_echo(event['eventCode']):
+            if is_server_echo(event["eventCode"]):
                 return
 
-            if 'transaction' in event:
-                event_transaction = event['transaction']
+            if "transaction" in event:
+                event_transaction = event["transaction"]
                 # Checks if the messsage is for a transaction subscription
                 if subscription_type(message) == SubscriptionType.TRANSACTION:
                     # Find the matching subscription and run it's callback
-                    transaction_hash = event_transaction['hash']
+                    transaction_hash = event_transaction["hash"]
                     if transaction_hash in self._subscription_registry:
                         transaction = self._flatten_event_to_transaction(event)
-                        await self._subscription_registry[transaction_hash].callback(transaction)
+                        await self._subscription_registry[transaction_hash].callback(
+                            transaction
+                        )
 
                 # Checks if the messsage is for an address subscription
                 elif subscription_type(message) == SubscriptionType.ADDRESS:
-                    watched_address = event_transaction['watchedAddress']
-                    if watched_address in self._subscription_registry and watched_address is not None:
+                    watched_address = event_transaction["watchedAddress"]
+                    if (
+                        watched_address in self._subscription_registry
+                        and watched_address is not None
+                    ):
                         # Find the matching subscription and run it's callback
                         transaction = self._flatten_event_to_transaction(event)
-                        await self._subscription_registry[watched_address].callback(transaction,(lambda: self.unsubscribe(watched_address)))
+                        await self._subscription_registry[watched_address].callback(
+                            transaction, (lambda: self.unsubscribe(watched_address))
+                        )
 
     def unsubscribe(self, watched_address):
         # remove this subscription from the registry so that we don't execute the callback
@@ -253,9 +268,9 @@ class Stream:
         def _unsubscribe(_):
             self.send_message(
                 self._build_payload(
-                    category_code='accountAddress',
-                    event_code='unwatch',
-                    data={'account': {'address': watched_address}},
+                    category_code="accountAddress",
+                    event_code="unwatch",
+                    data={"account": {"address": watched_address}},
                 )
             )
 
@@ -281,7 +296,7 @@ class Stream:
                 await self._ws.ping()
             await trio.sleep(PING_INTERVAL)
 
-    async def _handle_connection(self, base_url:str):
+    async def _handle_connection(self, base_url: str):
         """Handles the setup once the websocket connection is established, as well as,
         handles reconnect if the websocket closes for any reason.
 
@@ -291,7 +306,7 @@ class Stream:
 
         # If the user set global_filters then send them once _message_dispatcher starts
         if self.global_filters:
-            self._send_config_message('global', None, self.global_filters)
+            self._send_config_message("global", None, self.global_filters)
 
         # Queues up the init message which will be sent once _message_dispatcher starts
         self._queue_init_message()
@@ -302,7 +317,7 @@ class Stream:
                 self._send_txn_watch_message(sub_id, status=subscription.data)
             elif subscription.sub_type == SubscriptionType.ADDRESS:
                 self._send_config_message(
-                    sub_id, True, subscription.data['filters'], subscription.data['abi']
+                    sub_id, True, subscription.data["filters"], subscription.data["abi"]
                 )
 
         try:
@@ -321,7 +336,7 @@ class Stream:
                 self._ws = ws
                 await self._handle_connection(base_url)
         except HandshakeError as e:
-            logging.exception('Handshake failed')
+            logging.exception("Handshake failed")
             return False
 
     def _is_connected(self) -> bool:
@@ -349,13 +364,13 @@ class Stream:
         """
         self.send_message(
             self._build_payload(
-                category_code='configs',
-                event_code='put',
+                category_code="configs",
+                event_code="put",
                 data=Config(scope, filters, abi, watch_address).as_dict(),
             )
         )
 
-    def _send_txn_watch_message(self, txn_hash: str, status: str = 'sent'):
+    def _send_txn_watch_message(self, txn_hash: str, status: str = "sent"):
         """Helper method which constructs and sends the payload for watching transactions.
 
         Args:
@@ -363,15 +378,15 @@ class Stream:
             status: The status of the transaction to receive events for.
         """
         txn = {
-            'transaction': {
-                'hash': txn_hash,
-                'startTime': int(time.time() * 1000),
-                'status': status,
+            "transaction": {
+                "hash": txn_hash,
+                "startTime": int(time.time() * 1000),
+                "status": status,
             }
         }
         self.send_message(
             self._build_payload(
-                'activeTransaction',
+                "activeTransaction",
                 event_code=status_to_event_code(status),
                 data=txn,
             )
@@ -395,41 +410,41 @@ class Stream:
             The constructed payload to send to the server.
         """
         return {
-            'timeStamp': datetime.now().isoformat(),
-            'dappId': self.api_key,
-            'version': API_VERSION,
-            'blockchain': {
-                'system': self.blockchain,
-                'network': network_id_to_name(self.network_id),
+            "timeStamp": datetime.now().isoformat(),
+            "dappId": self.api_key,
+            "version": API_VERSION,
+            "blockchain": {
+                "system": self.blockchain,
+                "network": network_id_to_name(self.network_id),
             },
-            'categoryCode': category_code,
-            'eventCode': event_code,
+            "categoryCode": category_code,
+            "eventCode": event_code,
             **data,
         }
 
     def _queue_init_message(self):
         """Sends the initialization message e.g. the checkDappId event."""
         self.send_message(
-            self._build_payload(category_code='initialize', event_code='checkDappId')
+            self._build_payload(category_code="initialize", event_code="checkDappId")
         )
 
-    def _flatten_event_to_transaction(self, event:dict):
+    def _flatten_event_to_transaction(self, event: dict):
         transaction = {}
         eventcopy = dict(event)
-        del eventcopy['dappId']
-        if 'transaction' in eventcopy:
-            txn = eventcopy['transaction']
+        del eventcopy["dappId"]
+        if "transaction" in eventcopy:
+            txn = eventcopy["transaction"]
             for k in txn.keys():
                 transaction[k] = txn[k]
-            del eventcopy['transaction']
-        if 'blockchain' in eventcopy:
-            bc = eventcopy['blockchain']
+            del eventcopy["transaction"]
+        if "blockchain" in eventcopy:
+            bc = eventcopy["blockchain"]
             for k in bc.keys():
                 transaction[k] = bc[k]
-            del eventcopy['blockchain']
-        if 'contractCall' in eventcopy:
-            transaction['contractCall'] = eventcopy['contractCall']
-            del eventcopy['contractCall']
+            del eventcopy["blockchain"]
+        if "contractCall" in eventcopy:
+            transaction["contractCall"] = eventcopy["contractCall"]
+            del eventcopy["contractCall"]
         for k in eventcopy:
             if not isinstance(k, dict) and not isinstance(k, list):
                 transaction[k] = eventcopy[k]

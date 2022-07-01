@@ -1,0 +1,4 @@
+### Building docs
+```
+make html
+```
