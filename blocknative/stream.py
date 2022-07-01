@@ -133,7 +133,7 @@ class Stream:
 
         # Add this subscription to the registry
         self._subscription_registry[address] = Subscription(
-            callback, {'filters': filters, 'abi': abi}, SubscriptionType.ADDRESS
+            callback, {'filters': filters, 'abi': json.loads(abi)}, SubscriptionType.ADDRESS
         )
 
         # Only send the message if we are already connected. The connection handler
