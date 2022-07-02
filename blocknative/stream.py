@@ -125,7 +125,7 @@ class Stream:
         address: str,
         callback: Callback,
         filters: List[dict] = None,
-        abi: List[dict] = None,
+        abi: Union[List[dict], str] = None,
     ):
         """Subscribes to an address to listen to any incoming and
         outgoing transactions that occur on that address.
@@ -140,10 +140,13 @@ class Stream:
         if self.blockchain == BN_ETHEREUM:
             address = address.lower()
 
+        if isinstance(abi, str):
+            abi = json.loads(abi)
+
         # Add this subscription to the registry
         self._subscription_registry[address] = Subscription(
             callback,
-            {"filters": filters, "abi": json.loads(abi)},
+            {"filters": filters, "abi": abi},
             SubscriptionType.ADDRESS,
         )
 
