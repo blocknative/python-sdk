@@ -125,7 +125,7 @@ class Stream:
         address: str,
         callback: Callback,
         filters: List[dict] = None,
-        abi: List[dict] = None,
+        abi: Union[List[dict], str] = None,
     ):
         """Subscribes to an address to listen to any incoming and
         outgoing transactions that occur on that address.
