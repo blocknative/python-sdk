@@ -140,10 +140,13 @@ class Stream:
         if self.blockchain == BN_ETHEREUM:
             address = address.lower()
 
+        if isinstance(abi, str):
+            abi = json.loads(abi)
+
         # Add this subscription to the registry
         self._subscription_registry[address] = Subscription(
             callback,
-            {"filters": filters, "abi": json.loads(abi)},
+            {"filters": filters, "abi": abi},
             SubscriptionType.ADDRESS,
         )
 
