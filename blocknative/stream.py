@@ -9,6 +9,7 @@ from queue import Queue, Empty
 from typing import List, Mapping, Callable, Union
 import trio
 import logging
+from logging import INFO
 from trio_websocket import (
     open_websocket_url,
     ConnectionClosed,
@@ -24,7 +25,11 @@ from blocknative.utils import (
     SubscriptionType,
     to_camel_case,
 )
+
 from blocknative import __version__ as API_VERSION
+
+FORMAT = "%(asctime)s [%(levelname)s]: %(message)s"
+logging.basicConfig(format=FORMAT, level=INFO)
 
 PING_INTERVAL = 15
 PING_TIMEOUT = 10
@@ -174,7 +179,11 @@ class Stream:
             self._send_txn_watch_message(tx_hash, status)
 
     def connect(self, base_url: str = BN_BASE_URL):
-        """Initializes the connection to the WebSocket server."""
+        """Initializes the connection to the WebSocket server.
+
+        Args:
+            base_url: The websocket url to connect to. Useful for when using a proxy.
+        """
         try:
             return trio.run(self._connect, base_url)
         except KeyboardInterrupt:
@@ -267,6 +276,15 @@ class Stream:
                         )
 
     def unsubscribe(self, watched_address):
+        """Unsubscribe from the current stream.
+
+        Note:
+            This function is passed as a parameter to the to the transaction callback that you provide.
+
+        Args:
+            watched_address: The address to unsubscribe from.
+        """
+
         # remove this subscription from the registry so that we don't execute the callback
         del self._subscription_registry[watched_address]
 
@@ -330,7 +348,12 @@ class Stream:
                 nursery.start_soon(self._heartbeat)
                 nursery.start_soon(self._poll_messages)
                 nursery.start_soon(self._message_dispatcher)
-        except (ConnectionClosed, trio.MultiError) as error:
+        except (ConnectionClosed, trio.MultiError, trio.TooSlowError) as error:
+            if isinstance(error, trio.TooSlowError):
+                logging.warn(
+                    f"Server failed to respond to ping within the given timeout of {PING_TIMEOUT} seconds."
+                )
+            logging.info("Attempting to reconnect...")
             # If server times the connection out or drops, reconnect
             await trio.sleep(0.5)
             await self._connect(base_url)
