@@ -18,6 +18,7 @@ Application Programming Interface
     global_filters = [{ "status": "pending" }]
     Stream(API_KEY, BLOCKCHAIN, network_id, global_filters)
 
+.. autofunction:: blocknative.stream.Stream.connect
 
 .. autofunction:: blocknative.stream.Stream.subscribe_address
 
